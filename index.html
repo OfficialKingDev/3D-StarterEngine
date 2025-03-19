@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Starter Engine</title>
+    <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/three@0.139.0/build/three.min.js"></script>
+    <style>
+        body { margin: 0; }
+        canvas { display: block; }
+        #gameCanvas {
+            width: 100%;
+            height: 100vh;
+            display: block;
+        }
+        .slider-container {
+            position: absolute;
+            top: 80px; /* Adjusted to make space for instructions */
+            left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 10; /* Ensure sliders are above the canvas */
+        }
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .slider-title {
+            color: white;
+            font-size: 0.8em;
+            font-family: 'Inter', sans-serif;
+            display: flex; /* Use flexbox for alignment */
+            align-items: center; /* Vertically center items */
+            gap: 10px; /* Add some gap between label and value */
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 150px;
+            height: 5px;
+            background: #4a5568; /* gray-700 */
+            outline: none;
+            -webkit-transition: .2s;
+            transition: opacity .2s;
+            border-radius: 5px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #f56565; /* red-500 */
+            cursor: pointer;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #f56565; /* red-500 */
+            cursor: pointer;
+        }
+
+        input[type="range"]:focus::-webkit-slider-thumb {
+            box-shadow: 0 0 0 3px rgba(244, 114, 114, 0.3); /* red-200 with opacity */
+        }
+
+        input[type="range"]:focus::-moz-range-thumb {
+            box-shadow: 0 0 0 3px rgba(244, 114, 114, 0.3); /* red-200 with opacity */
+        }
+        #instructions {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: white;
+            font-size: 0.9em;
+            font-family: 'Inter', sans-serif;
+            z-index: 10;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            max-width: 300px;
+            cursor: pointer; /* Add a pointer cursor on hover to indicate it's clickable */
+            transition: opacity 0.3s ease; /* Smooth transition for opacity */
+        }
+
+        #instructions:hover {
+            opacity: 0.8; /* Slightly reduce opacity on hover for a visual effect */
+        }
+
+        #resetButton {
+            position: absolute;
+            top: 110px;
+            left: 20px;
+            z-index: 10;
+            padding: 10px 20px;
+            background-color: #3b82f6; /* Blue 500 */
+            color: white;
+            font-family: 'Inter', sans-serif;
+            border-radius: 5px;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        #resetButton:hover {
+            background-color: #2563eb; /* Blue 700 */
+            box-shadow: 0 3px 7px rgba(0, 0, 0, 0.3);
+        }
+
+        #resetButton:active {
+            background-color: #1e40af; /* Blue 800 */
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        }
+        #toggleButton {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 11; /* Higher z-index than other elements */
+            padding: 10px 20px;
+            background-color: #3b82f6;
+            color: white;
+            font-family: 'Inter', sans-serif;
+            border-radius: 5px;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        #toggleButton:hover {
+            background-color: #2563eb;
+            box-shadow: 0 3px 7px rgba(0, 0, 0, 0.3);
+        }
+
+        #toggleButton:active {
+            background-color: #1e40af;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        }
+        .hidden {
+            display: none;
+        }
+        #watermark {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            color: rgba(0, 0, 0, 0.45); /* 45% opacity, black color */
+            font-size: 0.9em;
+            font-family: 'Inter', sans-serif;
+            z-index: 10;
+            pointer-events: auto; /* Allows clicks to go through */
+            cursor: pointer; /* Show a pointer cursor on hover */
+        }
+        #watermark:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <canvas id="gameCanvas"></canvas>
+    <button id="toggleButton">Toggle GUI</button>
+    <div id="instructions">
+        <h2 style="font-size: 1.2em; font-weight: bold; margin-bottom: 5px;">How to Use</h2>
+        <ul style="list-style-type: disc; padding-left: 20px; margin-bottom: 10px;">
+            <li><strong>Rotate the cube:</strong> Click and drag on the canvas.</li>
+            <li><strong>Move camera:</strong> Use the W, A, S, D keys on your keyboard to move around.</li>
+            <li><strong>Look around:</strong> Use the arrow keys on your keyboard to look around.</li>
+            <li><strong>Adjust FOV:</strong> Use the slider.</li>
+            <li><strong>Reset:</strong> Press the "Reset" button.</li>
+            <li><strong>Show/Hide GUI:</strong> Press the "Toggle GUI" button.</li>
+        </ul>
+        <p>Enjoy the 3D Starter Engine!</p>
+    </div>
+    <div class="slider-container">
+        <button id="resetButton">Reset</button>
+        <div class="slider-group">
+            <label for="fov-slider" class="slider-title">FOV: <span id="fov-value">75</span></label>
+            <input type="range" min="10" max="150" value="75" id="fov-slider">
+        </div>
+    </div>
+    <a href="https://github.com/OfficialKingDev" target="_blank" rel="noopener noreferrer">
+        <div id="watermark">Made by @OfficialKingDev on GitHub</div>
+    </a>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+        renderer.setClearColor(0x87CEEB); // Blue Sky
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 5;
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x404040); // Soft white light
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(1, 1, 2);
+        scene.add(directionalLight);
+
+
+        // Geometry
+        const geometry = new THREE.BoxGeometry(1, 1, 1);
+        const material = new THREE.MeshStandardMaterial({ color: 0x4299E1, roughness: 0.5, metalness: 0.2 }); // Initial color
+        const cube = new THREE.Mesh(geometry, material);
+        scene.add(cube);
+
+        function resizeRendererToDisplaySize(renderer) {
+            const canvas = renderer.domElement;
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            const needResize = canvas.width !== width || canvas.height !== height;
+            if (needResize) {
+                renderer.setSize(width, height, false);
+                camera.aspect = width / height;
+                camera.updateProjectionMatrix();
+            }
+            return needResize;
+        }
+
+        let previousMousePosition = { x: 0, y: 0 };
+        let colorCycle = 0;
+        const colors = [
+            0xFF0000, 0xFF7F00, 0xFFFF00, 0x00FF00, 0x0000FF, 0x4B0082, 0x9400D3
+        ]; // Rainbow colors
+        let colorChangeSpeed = 0.02; // Reduced speed
+        let isDragging = false; // Declare isDragging here
+        let mousePosition = {x: 0, y:0};
+        let rotationSpeed = {x: 0, y: 0};
+
+        // Get slider elements
+        const fovSlider = document.getElementById('fov-slider'); // Get FOV slider
+        const resetButton = document.getElementById('resetButton'); // Get the reset button
+        const toggleButton = document.getElementById('toggleButton'); // Get the toggle button
+        const sliderContainer = document.querySelector('.slider-container'); // Get the slider container
+        const instructionsElement = document.getElementById('instructions');
+        const fovValueDisplay = document.getElementById('fov-value'); // Get the FOV value display element
+
+
+        let guiVisible = true; // Keep track of GUI visibility
+
+        // Add event listeners to sliders
+        fovSlider.addEventListener('input', (event) => { // Add event listener for FOV slider
+            camera.fov = parseFloat(event.target.value); // Update camera FOV
+            camera.updateProjectionMatrix(); // Important: Update the projection matrix
+            fovValueDisplay.textContent = event.target.value; // Update the displayed FOV value
+        });
+
+        // Add event listener for the reset button
+        resetButton.addEventListener('click', () => {
+            cube.position.set(0, 0, 0); // Reset cube position
+            camera.position.set(0, 0, 5); // Reset camera position
+            camera.rotation.set(0, 0, 0);  // Reset camera rotation
+            cube.rotation.set(0, 0, 0); // Reset cube rotation
+            rotationSpeed.x = 0; // Reset rotation speed
+            rotationSpeed.y = 0;
+            fovSlider.value = 75;
+            camera.fov = 75; // Ensure FOV is also reset
+            camera.updateProjectionMatrix(); // Update projection matrix after reset
+            fovValueDisplay.textContent = "75"; // Reset FOV display value
+        });
+
+        // Add event listener for the toggle button
+        toggleButton.addEventListener('click', () => {
+            guiVisible = !guiVisible; // Toggle GUI visibility
+            sliderContainer.classList.toggle('hidden', !guiVisible); // Hide/show sliders
+            instructionsElement.classList.toggle('hidden', !guiVisible);
+            resetButton.classList.toggle('hidden', !guiVisible);
+            // You can add more elements to hide/show here
+        });
+
+        // Keyboard controls
+        const keys = {};
+        const moveSpeed = 0.1; // Increased basic speed
+        const lookSpeed = 0.02; // Added look speed
+
+        document.addEventListener('keydown', (event) => {
+            keys[event.key.toLowerCase()] = true;
+        });
+
+        document.addEventListener('keyup', (event) => {
+            keys[event.key.toLowerCase()] = false;
+        });
+
+
+        function updateCameraPosition() {
+            if (keys['w']) camera.position.z -= moveSpeed;
+            if (keys['s']) camera.position.z += moveSpeed;
+            if (keys['a']) camera.position.x -= moveSpeed;
+            if (keys['d']) camera.position.x += moveSpeed;
+            if (keys['arrowleft']) camera.rotation.y += lookSpeed; // Added arrow key controls
+            if (keys['arrowright']) camera.rotation.y -= lookSpeed;
+            if (keys['arrowup']) camera.rotation.x -= lookSpeed;
+            if (keys['arrowdown']) camera.rotation.x += lookSpeed;
+        }
+
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            resizeRendererToDisplaySize(renderer);
+
+            updateCameraPosition(); // Update camera position based on keys
+
+            // Rotate the cube
+           cube.rotation.y += rotationSpeed.y;
+           cube.rotation.x += rotationSpeed.x;
+
+
+            // Change color slowly
+            colorCycle += colorChangeSpeed;
+            const colorIndex = Math.floor(colorCycle) % colors.length;
+            const nextColorIndex = (colorIndex + 1) % colors.length;
+            const t = colorCycle - Math.floor(colorCycle); // 0 to 1
+            const currentColor = colors[colorIndex];
+            const nextColor = colors[nextColorIndex];
+
+            // Linear interpolation between the two colors
+            const r = Math.round((1 - t) * ((currentColor >> 16) & 0xFF) + t * ((nextColor >> 16) & 0xFF));
+            const g = Math.round((1 - t) * ((currentColor >> 8) & 0xFF) + t * ((nextColor >> 8) & 0xFF));
+            const b = Math.round((1 - t) * (currentColor & 0xFF) + t * (nextColor & 0xFF));
+            const blendedColor = (r << 16) | (g << 8) | b;
+
+            material.color.setHex(blendedColor);
+
+            renderer.render(scene, camera);
+        }
+
+        resizeRendererToDisplaySize(renderer);
+        animate();
+
+
+
+        // Touch and mouse drag controls
+        const handleStart = (event) => {
+            isDragging = true;
+            const clientX = event.clientX || event.touches[0].clientX;
+            const clientY = event.clientY || event.touches[0].clientY;
+            previousMousePosition = {
+                x: clientX,
+                y: clientY
+            };
+             mousePosition = {
+                x: clientX,
+                y: clientY
+            };
+             rotationSpeed = { x: 0, y: 0 }; // Reset speed when starting a new drag
+        };
+
+        const handleEnd = () => {
+            isDragging = false;
+             previousMousePosition = { x: 0, y: 0 };
+        };
+
+       const handleMove = (event) => {
+            if (isDragging) {
+              const clientX = event.clientX || event.touches[0].clientX;
+                const clientY = event.clientY || event.touches[0].clientY;
+                mousePosition = {
+                    x: clientX,
+                    y: clientY
+                };
+                  const sensitivity = 0.002;
+                const deltaX = (clientX - previousMousePosition.x) * sensitivity;
+                const deltaY = (clientY - previousMousePosition.y) * sensitivity;
+
+                rotationSpeed.y = deltaX;
+                rotationSpeed.x = -deltaY;
+
+                previousMousePosition = { x: clientX, y: clientY };
+            }
+        };
+
+        canvas.addEventListener('mousedown', handleStart);
+        canvas.addEventListener('mouseup', handleEnd);
+        canvas.addEventListener('mousemove', handleMove);
+
+        canvas.addEventListener('touchstart', handleStart);
+        canvas.addEventListener('touchend', handleEnd);
+        canvas.addEventListener('touchmove', handleMove);
+
+        window.addEventListener('resize', () => {
+            resizeRendererToDisplaySize(renderer);
+        });
+
+        // Add this event listener to the instructions element
+        instructionsElement.addEventListener('click', () => {
+            instructionsElement.classList.toggle('hidden'); // Toggle the 'hidden' class
+        });
+    </script>
+</body>
+</html>
